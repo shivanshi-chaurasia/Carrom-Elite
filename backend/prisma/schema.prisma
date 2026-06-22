@@ -1,0 +1,932 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["fullTextSearch"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==========================================
+// ENUMS
+// ==========================================
+
+enum UserRole {
+  USER
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  BANNED
+  DELETED
+}
+
+enum KycStatus {
+  PENDING
+  SUBMITTED
+  APPROVED
+  REJECTED
+}
+
+enum TransactionType {
+  DEPOSIT
+  WITHDRAWAL
+  REFUND
+  BONUS
+  CASHBACK
+  REFERRAL_BONUS
+  MATCH_FEE
+  MATCH_WINNING
+  LOTTERY_PURCHASE
+  LOTTERY_WINNING
+  ADMIN_CREDIT
+  ADMIN_DEBIT
+}
+
+enum TransactionStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  CANCELLED
+  REFUNDED
+}
+
+enum PaymentGateway {
+  RAZORPAY
+  PAYTM
+  PHONEPE
+  STRIPE
+  MANUAL
+}
+
+enum MatchStatus {
+  WAITING
+  READY
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  TIMEOUT
+}
+
+enum MatchType {
+  PUBLIC
+  PRIVATE
+  TOURNAMENT
+}
+
+enum RoomType {
+  CLASSIC
+  QUICK
+  TOURNAMENT
+}
+
+enum TournamentStatus {
+  UPCOMING
+  REGISTRATION_OPEN
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum LotteryStatus {
+  PENDING
+  ACTIVE
+  DRAWING
+  COMPLETED
+  CANCELLED
+}
+
+enum TicketStatus {
+  ACTIVE
+  WON
+  LOST
+  REFUNDED
+}
+
+enum NotificationType {
+  PUSH
+  EMAIL
+  SMS
+  IN_APP
+}
+
+enum NotificationCategory {
+  REWARD
+  MATCH_INVITE
+  MATCH_RESULT
+  WALLET
+  LOTTERY
+  SYSTEM
+  SOCIAL
+}
+
+enum FriendStatus {
+  PENDING
+  ACCEPTED
+  BLOCKED
+}
+
+enum SupportTicketStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  LOGIN
+  LOGOUT
+  BAN
+  UNBAN
+  KYC_APPROVE
+  KYC_REJECT
+  WALLET_CREDIT
+  WALLET_DEBIT
+  SETTINGS_CHANGE
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+enum Language {
+  EN
+  HI
+  TA
+  TE
+  KN
+  ML
+  MR
+  GU
+  BN
+}
+
+enum Theme {
+  LIGHT
+  DARK
+  SYSTEM
+}
+
+enum DevicePlatform {
+  ANDROID
+  IOS
+  WEB
+}
+
+// ==========================================
+// USER & AUTH MODELS
+// ==========================================
+
+model User {
+  id              String     @id @default(uuid()) @db.Uuid
+  username        String     @unique @db.VarChar(50)
+  email           String     @unique @db.VarChar(255)
+  phone           String?    @unique @db.VarChar(20)
+  password        String     @db.VarChar(255)
+  role            UserRole   @default(USER)
+  status          UserStatus @default(ACTIVE)
+  isEmailVerified Boolean    @default(false)
+  isPhoneVerified Boolean    @default(false)
+  isKycCompleted  Boolean    @default(false)
+  isBiometricEnabled Boolean @default(false)
+  avatar          String?    @db.VarChar(500)
+  referralCode    String?    @unique @db.VarChar(20)
+  referredBy      String?    @db.Uuid
+  gender          Gender?
+  dateOfBirth     DateTime?
+  lastLoginAt     DateTime?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+  deletedAt       DateTime?
+
+  // Relations
+  referredUsers         User[]           @relation("ReferralRelation")
+  referrer              User?            @relation("ReferralRelation", fields: [referredBy], references: [id])
+  devices               Device[]
+  sessions              Session[]
+  wallets               Wallet[]
+  transactions          Transaction[]
+  kycDocuments          KycDocument[]
+  bankAccounts          BankAccount[]
+  upiAccounts           UpiAccount[]
+  rewards               Reward[]
+  referralEarningsAsReferrer ReferralEarning[] @relation("ReferralEarningReferrer")
+  referralEarningsAsReferred ReferralEarning[] @relation("ReferralEarningReferred")
+  matchPlayers          MatchPlayer[]
+  wonMatches            Match[]         @relation("MatchWinner")
+  rooms                 Room[]          @relation("RoomOwner")
+  leaderboardEntries    Leaderboard[]
+  tournamentRegistrations TournamentRegistration[]
+  lotteryTickets        LotteryTicket[]
+  wonLotteries          Lottery[]       @relation("LotteryWinner")
+  notifications         Notification[]
+  sentRequests          FriendRequest[] @relation("Sender")
+  receivedRequests      FriendRequest[] @relation("Receiver")
+  sentMessages          ChatMessage[]   @relation("Sender")
+  receivedMessages      ChatMessage[]   @relation("Receiver")
+  blockedUsers          BlockedUser[]   @relation("Blocker")
+  blockedBy             BlockedUser[]   @relation("Blocked")
+  reports               Report[]        @relation("Reporter")
+  reportedInReports     Report[]        @relation("Reported")
+  supportTickets        SupportTicket[]
+  ticketResponses       TicketResponse[]
+  settings              Settings?
+  admin                 Admin?
+  auditLogs             AuditLog[]
+
+  @@index([email])
+  @@index([phone])
+  @@index([referralCode])
+  @@index([status])
+  @@index([role])
+  @@index([createdAt])
+  @@map("users")
+}
+
+model Device {
+  id            String         @id @default(uuid()) @db.Uuid
+  userId        String         @db.Uuid
+  deviceId      String         @db.VarChar(255)
+  platform      DevicePlatform
+  fcmToken      String?        @db.Text
+  deviceName    String?        @db.VarChar(255)
+  deviceModel   String?        @db.VarChar(255)
+  osVersion     String?        @db.VarChar(50)
+  appVersion    String?        @db.VarChar(20)
+  ipAddress     String?        @db.VarChar(45)
+  isActive      Boolean        @default(true)
+  isTrusted     Boolean        @default(false)
+  lastUsedAt    DateTime?
+  createdAt     DateTime       @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, deviceId])
+  @@index([userId])
+  @@index([deviceId])
+  @@map("devices")
+}
+
+model Session {
+  id            String    @id @default(uuid()) @db.Uuid
+  userId        String    @db.Uuid
+  deviceId      String?   @db.VarChar(255)
+  accessToken   String    @db.Text
+  refreshToken  String    @db.Text
+  ipAddress     String?   @db.VarChar(45)
+  userAgent     String?   @db.Text
+  isRevoked     Boolean   @default(false)
+  expiresAt     DateTime
+  createdAt     DateTime  @default(now())
+  revokedAt     DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([accessToken])
+  @@index([refreshToken])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+// ==========================================
+// KYC & FINANCIAL MODELS
+// ==========================================
+
+model KycDocument {
+  id              String     @id @default(uuid()) @db.Uuid
+  userId          String     @db.Uuid
+  documentType    String     @db.VarChar(50) // AADHAAR, PAN, VOTER_ID, DRIVING_LICENSE
+  documentNumber  String     @db.VarChar(100)
+  frontImage      String     @db.VarChar(500)
+  backImage       String?    @db.VarChar(500)
+  status          KycStatus  @default(PENDING)
+  rejectionReason String?    @db.Text
+  verifiedBy      String?    @db.Uuid
+  verifiedAt      DateTime?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  user      User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  verifiedByAdmin Admin? @relation("KycVerifier", fields: [verifiedBy], references: [id])
+
+  @@index([userId])
+  @@index([documentNumber])
+  @@index([status])
+  @@map("kyc_documents")
+}
+
+model BankAccount {
+  id               String   @id @default(uuid()) @db.Uuid
+  userId           String   @db.Uuid
+  accountHolderName String  @db.VarChar(255)
+  accountNumber    String   @db.VarChar(50)
+  ifscCode         String   @db.VarChar(20)
+  bankName         String   @db.VarChar(255)
+  branchName       String?  @db.VarChar(255)
+  isVerified       Boolean  @default(false)
+  isDefault        Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, accountNumber])
+  @@index([userId])
+  @@map("bank_accounts")
+}
+
+model UpiAccount {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @db.Uuid
+  upiId       String   @db.VarChar(255)
+  upiName     String?  @db.VarChar(255)
+  isVerified  Boolean  @default(false)
+  isDefault   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, upiId])
+  @@index([userId])
+  @@map("upi_accounts")
+}
+
+// ==========================================
+// WALLET & TRANSACTIONS
+// ==========================================
+
+model Wallet {
+  id            String  @id @default(uuid()) @db.Uuid
+  userId        String  @db.Uuid
+  balance       Decimal @default(0) @db.Decimal(15, 2)
+  bonusBalance  Decimal @default(0) @db.Decimal(15, 2)
+  cashbackBalance Decimal @default(0) @db.Decimal(15, 2)
+  totalDeposited Decimal @default(0) @db.Decimal(15, 2)
+  totalWithdrawn Decimal @default(0) @db.Decimal(15, 2)
+  totalWinnings  Decimal @default(0) @db.Decimal(15, 2)
+  isLocked      Boolean @default(false)
+  lockedAt      DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions Transaction[]
+
+  @@index([userId])
+  @@map("wallets")
+}
+
+model Transaction {
+  id              String            @id @default(uuid()) @db.Uuid
+  walletId        String            @db.Uuid
+  userId          String            @db.Uuid
+  type            TransactionType
+  status          TransactionStatus @default(PENDING)
+  amount          Decimal           @db.Decimal(15, 2)
+  balanceBefore   Decimal           @db.Decimal(15, 2)
+  balanceAfter    Decimal           @db.Decimal(15, 2)
+  gateway         PaymentGateway?
+  gatewayReference String?          @db.VarChar(255)
+  description     String?           @db.Text
+  metadata        Json?             @db.JsonB
+  settlementDate  DateTime?
+  failureReason   String?           @db.Text
+  isRefunded      Boolean           @default(false)
+  refundedAt      DateTime?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  wallet Wallet @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([walletId])
+  @@index([userId])
+  @@index([type])
+  @@index([status])
+  @@index([createdAt])
+  @@index([gatewayReference])
+  @@map("transactions")
+}
+
+// ==========================================
+// REWARDS & REFERRALS
+// ==========================================
+
+model Reward {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @db.Uuid
+  type        String   @db.VarChar(50) // DAILY, WEEKLY, ACHIEVEMENT, MISSION, VIP
+  coins       Int      @default(0)
+  description String?  @db.Text
+  claimedAt   DateTime @default(now())
+  expiresAt   DateTime?
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([type])
+  @@index([claimedAt])
+  @@map("rewards")
+}
+
+model ReferralEarning {
+  id            String   @id @default(uuid()) @db.Uuid
+  referrerId    String   @db.Uuid
+  referredId    String   @db.Uuid
+  amount        Decimal  @db.Decimal(15, 2)
+  isWithdrawn   Boolean  @default(false)
+  withdrawnAt   DateTime?
+  createdAt     DateTime @default(now())
+
+  referrer User @relation("ReferralEarningReferrer", fields: [referrerId], references: [id], onDelete: Cascade)
+  referred User @relation("ReferralEarningReferred", fields: [referredId], references: [id], onDelete: Cascade)
+
+  @@unique([referrerId, referredId])
+  @@index([referrerId])
+  @@map("referral_earnings")
+}
+
+// ==========================================
+// CARROM / MATCH MODELS
+// ==========================================
+
+model Match {
+  id            String      @id @default(uuid()) @db.Uuid
+  roomId        String      @db.Uuid
+  type          MatchType
+  status        MatchStatus @default(WAITING)
+  entryFee      Decimal     @default(0) @db.Decimal(15, 2)
+  prizePool     Decimal     @default(0) @db.Decimal(15, 2)
+  maxPlayers    Int         @default(4)
+  winnerId      String?     @db.Uuid
+  winnerPrize   Decimal?    @db.Decimal(15, 2)
+  startedAt     DateTime?
+  completedAt   DateTime?
+  duration      Int?        // seconds
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  room    Room          @relation(fields: [roomId], references: [id])
+  players MatchPlayer[]
+  winner  User?         @relation("MatchWinner", fields: [winnerId], references: [id])
+
+  @@index([status])
+  @@index([type])
+  @@index([roomId])
+  @@index([createdAt])
+  @@map("matches")
+}
+
+model Room {
+  id          String    @id @default(uuid()) @db.Uuid
+  name        String?   @db.VarChar(100)
+  ownerId     String    @db.Uuid
+  type        RoomType  @default(CLASSIC)
+  matchType   MatchType @default(PUBLIC)
+  isPrivate   Boolean   @default(false)
+  password    String?   @db.VarChar(100)
+  maxPlayers  Int       @default(4)
+  entryFee    Decimal   @default(0) @db.Decimal(15, 2)
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  owner   User    @relation("RoomOwner", fields: [ownerId], references: [id])
+  matches Match[]
+
+  @@index([ownerId])
+  @@index([isActive])
+  @@index([type])
+  @@map("rooms")
+}
+
+model MatchPlayer {
+  id            String       @id @default(uuid()) @db.Uuid
+  matchId       String       @db.Uuid
+  userId        String       @db.Uuid
+  score         Int          @default(0)
+  isWinner      Boolean      @default(false)
+  prizeAmount   Decimal?     @db.Decimal(15, 2)
+  isReady       Boolean      @default(false)
+  joinedAt      DateTime     @default(now())
+  leftAt        DateTime?
+
+  match Match @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([matchId, userId])
+  @@index([matchId])
+  @@index([userId])
+  @@map("match_players")
+}
+
+model Leaderboard {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @db.Uuid
+  totalWins  Int      @default(0)
+  totalMatches Int    @default(0)
+  totalScore Int      @default(0)
+  winRate    Decimal  @default(0) @db.Decimal(5, 2)
+  rank       Int?
+  season     String   @db.VarChar(20)  // e.g., "SEASON_1", "2024-Q1"
+  updatedAt  DateTime @updatedAt
+  createdAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, season])
+  @@index([season, rank])
+  @@index([totalWins])
+  @@map("leaderboard")
+}
+
+model Tournament {
+  id              String            @id @default(uuid()) @db.Uuid
+  name            String            @db.VarChar(255)
+  description     String?           @db.Text
+  entryFee        Decimal           @db.Decimal(15, 2)
+  prizePool       Decimal           @db.Decimal(15, 2)
+  maxParticipants Int               @default(64)
+  minParticipants Int               @default(4)
+  status          TournamentStatus  @default(UPCOMING)
+  startTime       DateTime
+  endTime         DateTime?
+  rules           Json?             @db.JsonB
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  registrations TournamentRegistration[]
+
+  @@index([status])
+  @@index([startTime])
+  @@map("tournaments")
+}
+
+model TournamentRegistration {
+  id           String   @id @default(uuid()) @db.Uuid
+  tournamentId String   @db.Uuid
+  userId       String   @db.Uuid
+  seed         Int?
+  isActive     Boolean  @default(true)
+  registeredAt DateTime @default(now())
+
+  tournament Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([tournamentId, userId])
+  @@index([tournamentId])
+  @@map("tournament_registrations")
+}
+
+// ==========================================
+// LOTTERY MODELS
+// ==========================================
+
+model Lottery {
+  id              String         @id @default(uuid()) @db.Uuid
+  name            String         @db.VarChar(255)
+  ticketPrice     Decimal        @default(10) @db.Decimal(15, 2)
+  jackpotAmount   Decimal        @default(0) @db.Decimal(15, 2)
+  totalTickets    Int            @default(0)
+  soldTickets     Int            @default(0)
+  maxTicketsPerUser Int          @default(100)
+  status          LotteryStatus  @default(PENDING)
+  drawTime        DateTime
+  winningNumber   String?        @db.VarChar(20)
+  winnerId        String?        @db.Uuid
+  winnerPrize     Decimal?       @db.Decimal(15, 2)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  tickets       LotteryTicket[]
+  winner        User?           @relation("LotteryWinner", fields: [winnerId], references: [id])
+
+  @@index([status])
+  @@index([drawTime])
+  @@index([status, drawTime])
+  @@map("lotteries")
+}
+
+model LotteryTicket {
+  id         String         @id @default(uuid()) @db.Uuid
+  lotteryId  String         @db.Uuid
+  userId     String         @db.Uuid
+  ticketNumber String       @db.VarChar(20)
+  status     TicketStatus   @default(ACTIVE)
+  prizeAmount Decimal?      @db.Decimal(15, 2)
+  purchasedAt DateTime      @default(now())
+
+  lottery Lottery @relation(fields: [lotteryId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([lotteryId, ticketNumber])
+  @@index([lotteryId])
+  @@index([userId])
+  @@index([status])
+  @@map("lottery_tickets")
+}
+
+// ==========================================
+// HOME / DASHBOARD MODELS
+// ==========================================
+
+model Game {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String   @db.VarChar(100)
+  description String?  @db.Text
+  image       String?  @db.VarChar(500)
+  category    String?  @db.VarChar(50)
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  metadata    Json?    @db.JsonB
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([isActive, sortOrder])
+  @@map("games")
+}
+
+model PromoBanner {
+  id          String    @id @default(uuid()) @db.Uuid
+  title       String    @db.VarChar(255)
+  description String?   @db.Text
+  image       String?   @db.VarChar(500)
+  link        String?   @db.VarChar(500)
+  linkType    String?   @db.VarChar(50)
+  isActive    Boolean   @default(true)
+  sortOrder   Int       @default(0)
+  startsAt    DateTime?
+  expiresAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([isActive, sortOrder])
+  @@index([startsAt, expiresAt])
+  @@map("promo_banners")
+}
+
+model Event {
+  id          String    @id @default(uuid()) @db.Uuid
+  title       String    @db.VarChar(255)
+  description String?   @db.Text
+  image       String?   @db.VarChar(500)
+  startDate   DateTime
+  endDate     DateTime?
+  location    String?   @db.VarChar(255)
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([isActive])
+  @@index([startDate])
+  @@map("events")
+}
+
+model News {
+  id          String    @id @default(uuid()) @db.Uuid
+  title       String    @db.VarChar(255)
+  summary     String?   @db.Text
+  content     String?   @db.Text
+  image       String?   @db.VarChar(500)
+  source      String?   @db.VarChar(255)
+  isActive    Boolean   @default(true)
+  publishedAt DateTime? @default(now())
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([isActive])
+  @@index([publishedAt])
+  @@map("news")
+}
+
+// ==========================================
+// NOTIFICATION MODELS
+// ==========================================
+
+model Notification {
+  id              String               @id @default(uuid()) @db.Uuid
+  userId          String               @db.Uuid
+  title           String               @db.VarChar(255)
+  body            String               @db.Text
+  type            NotificationType     @default(PUSH)
+  category        NotificationCategory
+  data            Json?                @db.JsonB
+  isRead          Boolean              @default(false)
+  readAt          DateTime?
+  createdAt       DateTime             @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([userId, isRead])
+  @@index([createdAt])
+  @@map("notifications")
+}
+
+// ==========================================
+// SOCIAL MODELS
+// ==========================================
+
+model FriendRequest {
+  id         String       @id @default(uuid()) @db.Uuid
+  senderId   String       @db.Uuid
+  receiverId String       @db.Uuid
+  status     FriendStatus @default(PENDING)
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  sender   User @relation("Sender", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver User @relation("Receiver", fields: [receiverId], references: [id], onDelete: Cascade)
+
+  @@unique([senderId, receiverId])
+  @@index([senderId])
+  @@index([receiverId])
+  @@index([status])
+  @@map("friend_requests")
+}
+
+model ChatMessage {
+  id        String   @id @default(uuid()) @db.Uuid
+  senderId  String   @db.Uuid
+  receiverId String  @db.Uuid
+  message   String   @db.Text
+  isRead    Boolean  @default(false)
+  readAt    DateTime?
+  createdAt DateTime @default(now())
+
+  sender   User @relation("Sender", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver User @relation("Receiver", fields: [receiverId], references: [id], onDelete: Cascade)
+
+  @@index([senderId, receiverId])
+  @@index([createdAt])
+  @@map("chat_messages")
+}
+
+model BlockedUser {
+  id          String   @id @default(uuid()) @db.Uuid
+  blockerId   String   @db.Uuid
+  blockedId   String   @db.Uuid
+  reason      String?  @db.Text
+  createdAt   DateTime @default(now())
+
+  blocker User @relation("Blocker", fields: [blockerId], references: [id], onDelete: Cascade)
+  blocked User @relation("Blocked", fields: [blockedId], references: [id], onDelete: Cascade)
+
+  @@unique([blockerId, blockedId])
+  @@index([blockerId])
+  @@map("blocked_users")
+}
+
+model Report {
+  id          String   @id @default(uuid()) @db.Uuid
+  reporterId  String   @db.Uuid
+  reportedId  String   @db.Uuid
+  reason      String   @db.VarChar(255)
+  description String?  @db.Text
+  isResolved  Boolean  @default(false)
+  resolvedAt  DateTime?
+  createdAt   DateTime @default(now())
+
+  reporter User @relation("Reporter", fields: [reporterId], references: [id], onDelete: Cascade)
+  reported User @relation("Reported", fields: [reportedId], references: [id], onDelete: Cascade)
+
+  @@index([reporterId])
+  @@index([reportedId])
+  @@index([isResolved])
+  @@map("reports")
+}
+
+// ==========================================
+// SUPPORT MODELS
+// ==========================================
+
+model SupportTicket {
+  id          String              @id @default(uuid()) @db.Uuid
+  userId      String              @db.Uuid
+  subject     String              @db.VarChar(255)
+  description String              @db.Text
+  category    String              @db.VarChar(100)
+  priority    TicketPriority      @default(MEDIUM)
+  status      SupportTicketStatus @default(OPEN)
+  assignedTo  String?             @db.Uuid
+  resolvedAt  DateTime?
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  responses TicketResponse[]
+  assignedAdmin Admin?   @relation("AssignedAdmin", fields: [assignedTo], references: [id])
+
+  @@index([userId])
+  @@index([status])
+  @@index([priority])
+  @@index([assignedTo])
+  @@map("support_tickets")
+}
+
+model TicketResponse {
+  id         String   @id @default(uuid()) @db.Uuid
+  ticketId   String   @db.Uuid
+  userId     String   @db.Uuid
+  message    String   @db.Text
+  isStaff    Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  ticket SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  user   User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId])
+  @@map("ticket_responses")
+}
+
+// ==========================================
+// SETTINGS
+// ==========================================
+
+model Settings {
+  id               String   @id @default(uuid()) @db.Uuid
+  userId           String   @unique @db.Uuid
+  language         Language @default(EN)
+  theme            Theme    @default(SYSTEM)
+  isTwoFactorEnabled Boolean @default(false)
+  twoFactorSecret  String?  @db.VarChar(255)
+  isFingerprintEnabled Boolean @default(false)
+  soundEnabled     Boolean  @default(true)
+  musicEnabled     Boolean  @default(true)
+  notificationsEnabled Boolean @default(true)
+  showOnlineStatus Boolean  @default(true)
+  allowFriendRequests Boolean @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("settings")
+}
+
+// ==========================================
+// ADMIN MODELS
+// ==========================================
+
+model Admin {
+  id            String    @id @default(uuid()) @db.Uuid
+  userId        String    @unique @db.Uuid
+  role          UserRole  @default(ADMIN)
+  permissions   Json?     @db.JsonB
+  isSuperAdmin  Boolean   @default(false)
+  createdBy     String?   @db.Uuid
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  user           User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  verifiedKyc    KycDocument[]     @relation("KycVerifier")
+  assignedTickets SupportTicket[]  @relation("AssignedAdmin")
+  activityLogs   AuditLog[]        @relation("AdminActivity")
+
+  @@index([userId])
+  @@index([role])
+  @@map("admins")
+}
+
+model AuditLog {
+  id          String       @id @default(uuid()) @db.Uuid
+  adminId     String?      @db.Uuid
+  userId      String?      @db.Uuid
+  action      AuditAction
+  entity      String       @db.VarChar(100)
+  entityId    String?      @db.VarChar(100)
+  oldValue    Json?        @db.JsonB
+  newValue    Json?        @db.JsonB
+  ipAddress   String?      @db.VarChar(45)
+  userAgent   String?      @db.Text
+  createdAt   DateTime     @default(now())
+
+  admin  Admin? @relation("AdminActivity", fields: [adminId], references: [id])
+  user   User?  @relation(fields: [userId], references: [id])
+
+  @@index([adminId])
+  @@index([userId])
+  @@index([action])
+  @@index([entity])
+  @@index([createdAt])
+  @@map("audit_logs")
+}

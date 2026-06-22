@@ -48,3 +48,17 @@ app.*.map.json
 # Compiled packages
 *.apk
 *.aab
+
+# Backend
+backend/node_modules/
+backend/dist/
+backend/coverage/
+backend/logs/
+backend/uploads/
+backend/.env
+backend/.env.local
+backend/.env.production
+backend/*.tsbuildinfo
+
+# Root
+.vscode/

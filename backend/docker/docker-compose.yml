@@ -1,0 +1,82 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: carrom-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: carrom_user
+      POSTGRES_PASSWORD: carrom_pass_secure
+      POSTGRES_DB: carrom_lottery
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U carrom_user -d carrom_lottery"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - carrom-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: carrom-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass redis_pass_secure
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - carrom-network
+
+  api:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: carrom-api
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      NODE_ENV: production
+      PORT: 8080
+      DATABASE_URL: postgresql://carrom_user:carrom_pass_secure@postgres:5432/carrom_lottery?schema=public
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: redis_pass_secure
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY}
+      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET}
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_USER: ${SMTP_USER}
+      SMTP_PASS: ${SMTP_PASS}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ../logs:/app/logs
+    networks:
+      - carrom-network
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  carrom-network:
+    driver: bridge
