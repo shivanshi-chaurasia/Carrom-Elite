@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/settings_models.dart';
 import 'api_service.dart';
 import 'storage_service.dart';
@@ -15,13 +15,15 @@ class SettingsService {
   static const graphicsQualityKey = 'graphics_quality';
   static const tfaEnabledKey = 'tfa_enabled';
 
+  Future<SharedPreferences> get _prefs => SharedPreferences.getInstance();
+
   // Load user game preferences
   Future<Map<String, dynamic>> loadPreferences() async {
-    // try reading local cache, use defaults if empty
-    final sfx = await storage.readVal('settings', sfxVolumeKey) as double? ?? 0.8;
-    final music = await storage.readVal('settings', musicVolumeKey) as double? ?? 0.5;
-    final haptics = await storage.readVal('settings', hapticsEnabledKey) as bool? ?? true;
-    final graphics = await storage.readVal('settings', graphicsQualityKey) as String? ?? 'High';
+    final p = await _prefs;
+    final sfx = p.getDouble(sfxVolumeKey) ?? 0.8;
+    final music = p.getDouble(musicVolumeKey) ?? 0.5;
+    final haptics = p.getBool(hapticsEnabledKey) ?? true;
+    final graphics = p.getString(graphicsQualityKey) ?? 'High';
 
     return {
       'sfx': sfx,
@@ -33,18 +35,28 @@ class SettingsService {
 
   // Save game preferences
   Future<void> savePreference(String key, dynamic value) async {
-    await storage.cacheVal('settings', key, value);
+    final p = await _prefs;
+    if (value is double) {
+      await p.setDouble(key, value);
+    } else if (value is int) {
+      await p.setInt(key, value);
+    } else if (value is bool) {
+      await p.setBool(key, value);
+    } else {
+      await p.setString(key, value.toString());
+    }
   }
 
   // Check 2FA status
   Future<bool> isTwoFactorEnabled() async {
-    final tfa = await storage.readVal('settings', tfaEnabledKey) as bool? ?? false;
-    return tfa;
+    final p = await _prefs;
+    return p.getBool(tfaEnabledKey) ?? false;
   }
 
   // Set 2FA status
   Future<void> setTwoFactorEnabled(bool enabled) async {
-    await storage.cacheVal('settings', tfaEnabledKey, enabled);
+    final p = await _prefs;
+    await p.setBool(tfaEnabledKey, enabled);
   }
 
   // Fetch all notifications from notification center
@@ -70,7 +82,7 @@ class SettingsService {
     required String subject,
     required String category,
     required String description,
-    File? screenshot,
+    String? screenshotPath,
   }) async {
     await Future<void>.delayed(const Duration(milliseconds: 1200));
     
@@ -82,7 +94,7 @@ class SettingsService {
       description: description,
       status: 'open',
       createdAt: DateTime.now(),
-      screenshotUrl: screenshot != null ? 'file://${screenshot.path}' : null,
+      screenshotUrl: screenshotPath != null ? 'file://$screenshotPath' : null,
     );
 
     return newTicket;

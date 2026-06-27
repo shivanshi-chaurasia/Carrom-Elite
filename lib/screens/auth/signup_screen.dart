@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../app.dart';
 import '../../core/constants/colors.dart';
 import '../../core/theme/typography.dart';
+import '../../providers/auth_providers.dart';
 
 class SignUpScreen extends ConsumerStatefulWidget {
   const SignUpScreen({super.key});
@@ -30,6 +31,54 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
     _passCtrl.dispose();
     _confirmCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _handleRegister() async {
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+    if (_passCtrl.text != _confirmCtrl.text) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Passwords do not match')),
+      );
+      return;
+    }
+    if (!_agree) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please agree to the Terms of Service and Privacy Policy')),
+      );
+      return;
+    }
+    try {
+      await ref.read(authProvider.notifier).register(
+        username: _nameCtrl.text,
+        email: _emailCtrl.text,
+        password: _passCtrl.text,
+        phone: _phoneCtrl.text.isNotEmpty ? _phoneCtrl.text : null,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Account created! Check your email for OTP.')),
+        );
+        context.push('/otp-verify?email=${Uri.encodeComponent(_emailCtrl.text)}');
+      }
+    } catch (e) {
+      if (mounted) {
+        final msg = e.toString().replaceFirst('Exception: ', '');
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            backgroundColor: AppColors.surface,
+            title: const Text('Registration Failed', style: TextStyle(color: Colors.white)),
+            content: Text(msg, style: const TextStyle(color: AppColors.textMuted)),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: const Text('OK', style: TextStyle(color: AppColors.gold)),
+              ),
+            ],
+          ),
+        );
+      }
+    }
   }
 
   @override
@@ -122,12 +171,17 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                       ],
                     ),
                     const SizedBox(height: 22),
-                    _gradientButton(
-                      label: 'Create Account',
-                      onPressed: () {
-                        if ((_formKey.currentState?.validate() ?? false) && _agree) {
-                          context.push(AppRoutes.otpVerify);
-                        }
+                    Consumer(
+                      builder: (ctx, ref, _) {
+                        final authState = ref.watch(authProvider);
+                        return _gradientButton(
+                          label: authState.isLoading ? 'CREATING ACCOUNT...' : 'Create Account',
+                          onPressed: authState.isLoading ? null : () {
+                            if ((_formKey.currentState?.validate() ?? false) && _agree) {
+                              _handleRegister();
+                            }
+                          },
+                        );
                       },
                     ),
                     const SizedBox(height: 20),
@@ -194,7 +248,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
     );
   }
 
-  Widget _gradientButton({required String label, required VoidCallback onPressed}) {
+  Widget _gradientButton({required String label, VoidCallback? onPressed}) {
     return Container(
       width: double.infinity,
       height: 48,

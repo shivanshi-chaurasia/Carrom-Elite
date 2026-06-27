@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../app.dart';
 import '../../core/constants/colors.dart';
 import '../../core/theme/typography.dart';
+import '../../providers/auth_providers.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -25,6 +26,23 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     _emailCtrl.dispose();
     _passCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _handleLogin(String emailOrPhone, String password) async {
+    try {
+      await ref.read(authProvider.notifier).login(
+        email: emailOrPhone.contains('@') ? emailOrPhone : null,
+        phone: emailOrPhone.contains('@') ? null : emailOrPhone,
+        password: password,
+      );
+      if (mounted) context.go(AppRoutes.home);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Login failed: $e')),
+        );
+      }
+    }
   }
 
   @override
@@ -116,12 +134,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       ],
                     ),
                     const SizedBox(height: 20),
-                    _gradientButton(
-                      label: 'LOGIN',
-                      onPressed: () {
-                        if (_formKey.currentState?.validate() ?? false) {
-                          context.push(AppRoutes.otpVerify);
-                        }
+                    Consumer(
+                      builder: (ctx, ref, _) {
+                        final authState = ref.watch(authProvider);
+                        return _gradientButton(
+                          label: authState.isLoading ? 'LOGGING IN...' : 'LOGIN',
+                          onPressed: authState.isLoading ? null : () {
+                            if (_formKey.currentState?.validate() ?? false) {
+                              _handleLogin(_emailCtrl.text, _passCtrl.text);
+                            }
+                          },
+                        );
                       },
                     ),
                     const SizedBox(height: 20),
@@ -215,7 +238,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     );
   }
 
-  Widget _gradientButton({required String label, required VoidCallback onPressed}) {
+  Widget _gradientButton({required String label, VoidCallback? onPressed}) {
     return Container(
       width: double.infinity,
       height: 48,

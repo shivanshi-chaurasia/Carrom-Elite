@@ -21,7 +21,7 @@ class VoiceChatPanel extends StatefulWidget {
 
 class _VoiceChatPanelState extends State<VoiceChatPanel> {
   bool _micEnabled = true;
-  bool _opponentMicEnabled = false;
+  final bool _opponentMicEnabled = false;
 
   @override
   Widget build(BuildContext context) {

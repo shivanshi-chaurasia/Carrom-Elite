@@ -92,9 +92,14 @@ class _CreatePasswordScreenState extends ConsumerState<CreatePasswordScreen> {
                     _gradientButton(
                       label: 'Continue',
                       onPressed: () {
-                        if (_formKey.currentState?.validate() ?? false) {
-                          context.push(AppRoutes.authSuccess);
+                        if (!(_formKey.currentState?.validate() ?? false)) return;
+                        if (_passCtrl.text != _confirmCtrl.text) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Passwords do not match')),
+                          );
+                          return;
                         }
+                        context.push(AppRoutes.authSuccess);
                       },
                     ),
                     const SizedBox(height: 20),

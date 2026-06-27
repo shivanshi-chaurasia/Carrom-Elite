@@ -7,9 +7,12 @@ import 'package:pinput/pinput.dart';
 import '../../app.dart';
 import '../../core/constants/colors.dart';
 import '../../core/theme/typography.dart';
+import '../../providers/service_providers.dart';
 
 class OtpVerificationScreen extends ConsumerStatefulWidget {
-  const OtpVerificationScreen({super.key});
+  const OtpVerificationScreen({super.key, this.email});
+
+  final String? email;
 
   @override
   ConsumerState<OtpVerificationScreen> createState() => _OtpVerificationScreenState();
@@ -17,13 +20,49 @@ class OtpVerificationScreen extends ConsumerStatefulWidget {
 
 class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
   final _pinCtrl = TextEditingController();
-  int _seconds = 88; // 1m 28s
+  int _seconds = 88;
   Timer? _timer;
+  bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
     _startTimer();
+  }
+
+  Future<void> _verifyOtp() async {
+    if (widget.email == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Email is required for verification')),
+        );
+      }
+      return;
+    }
+    setState(() => _isLoading = true);
+    final authService = ref.read(authServiceProvider);
+    try {
+      final verified = await authService.verifyOtp(
+        email: widget.email,
+        otp: _pinCtrl.text,
+        purpose: 'email_verification',
+      );
+      if (verified && mounted) {
+        context.push(AppRoutes.createPassword);
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Invalid OTP. Please try again.')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('OTP verification failed: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   void _startTimer() {
@@ -111,9 +150,17 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
                       const Spacer(),
                       TextButton(
                         onPressed: _seconds == 0
-                            ? () {
+                            ? () async {
                                 setState(() => _seconds = 88);
                                 _startTimer();
+                                if (widget.email != null) {
+                                  try {
+                                    await ref.read(authServiceProvider).sendOtp(
+                                      email: widget.email,
+                                      purpose: 'email_verification',
+                                    );
+                                  } catch (_) {}
+                                }
                               }
                             : null,
                         child: Text(
@@ -127,12 +174,10 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
                   ),
                   const SizedBox(height: 24),
                   _gradientButton(
-                    label: 'VERIFY ->',
-                    onPressed: () {
-                      if (_pinCtrl.text.length == 6) {
-                        context.push(AppRoutes.createPassword);
-                      }
-                    },
+                    label: _isLoading ? 'VERIFYING...' : 'VERIFY ->',
+                    onPressed: _isLoading || _pinCtrl.text.length != 6
+                        ? null
+                        : _verifyOtp,
                   ),
                   const SizedBox(height: 20),
                   TextButton(

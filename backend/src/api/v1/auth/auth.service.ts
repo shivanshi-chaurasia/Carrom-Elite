@@ -5,17 +5,22 @@ import { MESSAGES } from '../../../constants/messages';
 import { jwtService } from '../../../services/jwt.service';
 import { otpService } from '../../../services/otp.service';
 import { emailService } from '../../../services/email.service';
-import { userRepository } from '../../../repositories/auth.repository';
+import {
+  userRepository,
+  sessionRepository,
+  deviceRepository,
+} from '../../../repositories/auth.repository';
 import {
   RegisterDto,
   LoginDto,
   AuthResponseDto,
   toAuthResponseDto,
+  AuthTokensDto,
 } from '../../../dto/auth.dto';
 import { generateReferralCode } from '../../../utils/generate-token';
 
 export class AuthService {
-  async register(dto: RegisterDto): Promise<AuthResponseDto> {
+  async register(dto: RegisterDto): Promise<AuthTokensDto> {
     const existingEmail = await userRepository.findByEmail(dto.email);
     if (existingEmail) {
       throw ApiError.conflict(MESSAGES.EMAIL_EXISTS);
@@ -64,7 +69,10 @@ export class AuthService {
     }
     const user = await userRepository.createUser(createData);
 
-    const token = jwtService.generateToken(user.id);
+    const accessToken = jwtService.generateAccessToken(user.id);
+    const refreshToken = jwtService.generateRefreshToken(user.id);
+
+    await this._createSession(user.id, accessToken, refreshToken, dto.deviceId, dto.platform);
 
     try {
       await emailService.sendWelcomeEmail(user.email, user.username);
@@ -77,10 +85,13 @@ export class AuthService {
       // Non-blocking: queue these in production
     }
 
-    return toAuthResponseDto(user, token);
+    return {
+      ...toAuthResponseDto(user, accessToken),
+      refreshToken,
+    };
   }
 
-  async login(dto: LoginDto): Promise<AuthResponseDto> {
+  async login(dto: LoginDto): Promise<AuthTokensDto> {
     const user = await userRepository.findByEmailOrPhone(
       dto.email,
       dto.phone,
@@ -107,9 +118,67 @@ export class AuthService {
 
     await userRepository.updateLastLogin(user.id);
 
-    const token = jwtService.generateToken(user.id);
+    const accessToken = jwtService.generateAccessToken(user.id);
+    const refreshToken = jwtService.generateRefreshToken(user.id);
 
-    return toAuthResponseDto(user, token);
+    await this._createSession(user.id, accessToken, refreshToken, dto.deviceId, dto.platform);
+
+    return {
+      ...toAuthResponseDto(user, accessToken),
+      refreshToken,
+    };
+  }
+
+  async refreshToken(
+    refreshToken: string,
+    deviceId?: string,
+  ): Promise<AuthTokensDto> {
+    let payload;
+    try {
+      payload = jwtService.verifyRefreshToken(refreshToken);
+    } catch {
+      throw ApiError.unauthorized(MESSAGES.INVALID_REFRESH_TOKEN);
+    }
+
+    const session = await sessionRepository.findByRefreshToken(refreshToken);
+    if (!session) {
+      throw ApiError.unauthorized(MESSAGES.SESSION_EXPIRED);
+    }
+
+    await sessionRepository.revokeSession(session.id);
+
+    const user = await userRepository.findById(payload.userId);
+    if (!user) {
+      throw ApiError.unauthorized(MESSAGES.INVALID_CREDENTIALS);
+    }
+
+    if (user.status !== 'ACTIVE') {
+      throw ApiError.forbidden(MESSAGES.ACCOUNT_INACTIVE);
+    }
+
+    const newAccessToken = jwtService.generateAccessToken(user.id);
+    const newRefreshToken = jwtService.generateRefreshToken(user.id);
+
+    await this._createSession(user.id, newAccessToken, newRefreshToken, deviceId);
+
+    return {
+      ...toAuthResponseDto(user, newAccessToken),
+      refreshToken: newRefreshToken,
+    };
+  }
+
+  async logout(refreshToken: string, deviceId?: string): Promise<void> {
+    const session = await sessionRepository.findByRefreshToken(refreshToken);
+    if (session) {
+      await sessionRepository.revokeSession(session.id);
+    }
+
+    if (deviceId) {
+      const device = await deviceRepository.findByDeviceId(deviceId);
+      if (device) {
+        await deviceRepository.deactivateDevice(device.id);
+      }
+    }
   }
 
   async sendOtp(
@@ -162,16 +231,21 @@ export class AuthService {
       return;
     }
 
-    const resetToken = jwtService.generateToken(user.id);
+    const resetToken = jwtService.generateResetToken(user.id);
     await emailService.sendPasswordResetEmail(email, resetToken);
   }
 
   async resetPassword(token: string, newPassword: string): Promise<void> {
     let payload;
     try {
-      payload = jwtService.verifyToken(token);
+      payload = jwtService.verifyResetToken(token);
     } catch {
       throw ApiError.badRequest('Invalid or expired reset token');
+    }
+
+    const user = await userRepository.findById(payload.userId);
+    if (!user) {
+      throw ApiError.notFound('User not found');
     }
 
     const hashedPassword = await bcrypt.hash(
@@ -179,6 +253,8 @@ export class AuthService {
       config.bcrypt.saltRounds,
     );
     await userRepository.updatePassword(payload.userId, hashedPassword);
+
+    await sessionRepository.revokeAllUserSessions(payload.userId);
   }
 
   async registerBiometric(
@@ -204,8 +280,7 @@ export class AuthService {
     deviceId: string,
     _platform: string,
     _fcmToken?: string,
-  ): Promise<AuthResponseDto> {
-    const { deviceRepository } = require('../../../repositories/auth.repository');
+  ): Promise<AuthTokensDto> {
     const device = await deviceRepository.findByDeviceId(deviceId);
     if (!device || !device.isTrusted) {
       throw ApiError.unauthorized(MESSAGES.DEVICE_NOT_VERIFIED);
@@ -222,9 +297,34 @@ export class AuthService {
 
     await userRepository.updateLastLogin(user.id);
 
-    const token = jwtService.generateToken(user.id);
+    const accessToken = jwtService.generateAccessToken(user.id);
+    const refreshToken = jwtService.generateRefreshToken(user.id);
 
-    return toAuthResponseDto(user, token);
+    await this._createSession(user.id, accessToken, refreshToken, deviceId);
+
+    return {
+      ...toAuthResponseDto(user, accessToken),
+      refreshToken,
+    };
+  }
+
+  private async _createSession(
+    userId: string,
+    accessToken: string,
+    refreshToken: string,
+    deviceId?: string,
+    platform?: string,
+  ): Promise<void> {
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 7);
+
+    await sessionRepository.createSession({
+      user: { connect: { id: userId } },
+      accessToken,
+      refreshToken,
+      deviceId: deviceId || null,
+      expiresAt,
+    } as any);
   }
 }
 

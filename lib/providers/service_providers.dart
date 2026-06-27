@@ -1,7 +1,7 @@
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../services/api_service.dart';
+import '../services/auth_service.dart';
 import '../services/home_service.dart';
 import '../services/notification_service.dart';
 import '../services/profile_service.dart';
@@ -14,11 +14,15 @@ import '../services/wallet_service.dart';
 import '../services/settings_service.dart';
 
 final storageServiceProvider = Provider<StorageService>((ref) {
-  return StorageService(const FlutterSecureStorage());
+  return StorageService();
 });
 
 final apiServiceProvider = Provider<ApiService>((ref) {
   return ApiService(ref.watch(storageServiceProvider));
+});
+
+final authServiceProvider = Provider<AuthService>((ref) {
+  return AuthService(ref.watch(apiServiceProvider), ref.watch(storageServiceProvider));
 });
 
 final homeServiceProvider = Provider<HomeService>((ref) {

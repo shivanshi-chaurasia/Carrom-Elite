@@ -37,6 +37,10 @@ export interface AuthResponseDto {
   token: string;
 }
 
+export interface AuthTokensDto extends AuthResponseDto {
+  refreshToken: string;
+}
+
 export function toAuthResponseDto(user: User, token: string): AuthResponseDto {
   return {
     user: {

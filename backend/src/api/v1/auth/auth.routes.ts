@@ -6,6 +6,8 @@ import { authRateLimiter, otpRateLimiter } from '../../../middlewares/rate-limit
 import {
   registerSchema,
   loginSchema,
+  refreshTokenSchema,
+  logoutSchema,
   verifyEmailSchema,
   verifyPhoneSchema,
   verifyOtpSchema,
@@ -20,6 +22,8 @@ const router = Router();
 
 router.post('/register', authRateLimiter, validate({ body: registerSchema }), authController.register);
 router.post('/login', authRateLimiter, validate({ body: loginSchema }), authController.login);
+router.post('/refresh', validate({ body: refreshTokenSchema }), authController.refreshToken);
+router.post('/logout', validate({ body: logoutSchema }), authController.logout);
 
 router.post('/send-otp', otpRateLimiter, validate({ body: sendOtpSchema }), authController.sendOtp);
 router.post('/verify-email', validate({ body: verifyEmailSchema }), authController.verifyEmail);

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 
 import '../core/constants/api_endpoints.dart';
@@ -6,6 +7,22 @@ class SocketService {
   io.Socket? _socket;
 
   void connect(String token) {
+    if (kIsWeb) {
+      try {
+        _socket = io.io(
+          ApiEndpoints.baseUrl,
+          io.OptionBuilder()
+              .setTransports(['websocket'])
+              .setAuth({'token': token})
+              .disableAutoConnect()
+              .build(),
+        );
+        _socket?.connect();
+      } catch (e) {
+        debugPrint('Socket connect error on web: $e');
+      }
+      return;
+    }
     _socket = io.io(
       ApiEndpoints.baseUrl,
       io.OptionBuilder()

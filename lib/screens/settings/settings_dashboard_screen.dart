@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/constants/colors.dart';
 import '../../core/theme/typography.dart';
-import '../../providers/service_providers.dart';
+import '../../providers/auth_providers.dart';
 
 class SettingsDashboardScreen extends ConsumerWidget {
   const SettingsDashboardScreen({super.key});
@@ -171,7 +171,7 @@ class SettingsDashboardScreen extends ConsumerWidget {
                 TextButton(
                   onPressed: () async {
                     Navigator.of(ctx).pop();
-                    await ref.read(storageServiceProvider).clearTokens();
+                    await ref.read(authProvider.notifier).logout();
                     if (context.mounted) {
                       context.go('/login');
                     }

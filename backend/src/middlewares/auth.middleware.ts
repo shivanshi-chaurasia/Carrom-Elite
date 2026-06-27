@@ -6,7 +6,7 @@ import { asyncHandler } from '../utils/async-handler';
 import { prisma } from '../config/database';
 import { logger } from '../config/logger';
 
-const JWT_SECRET = process.env.JWT_SECRET!;
+const ACCESS_SECRET = process.env.JWT_ACCESS_SECRET || process.env.JWT_SECRET!;
 
 export const authenticate = asyncHandler(
   async (req: Request, _res: Response, next: NextFunction): Promise<void> => {
@@ -19,7 +19,7 @@ export const authenticate = asyncHandler(
     const token = authHeader.split(' ')[1];
 
     try {
-      const decoded = jwt.verify(token, JWT_SECRET) as JwtPayload;
+      const decoded = jwt.verify(token, ACCESS_SECRET) as JwtPayload;
 
       const user = await prisma.user.findUnique({
         where: { id: decoded.userId },
@@ -77,7 +77,7 @@ export const optionalAuth = asyncHandler(
     const token = authHeader.split(' ')[1];
 
     try {
-      const decoded = jwt.verify(token, JWT_SECRET) as JwtPayload;
+      const decoded = jwt.verify(token, ACCESS_SECRET) as JwtPayload;
 
       const user = await prisma.user.findUnique({
         where: { id: decoded.userId },

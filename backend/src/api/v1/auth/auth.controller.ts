@@ -15,6 +15,18 @@ export class AuthController {
     sendSuccess(res, result, MESSAGES.LOGIN_SUCCESS, undefined, req.correlationId);
   });
 
+  refreshToken = asyncHandler(async (req: Request, res: Response) => {
+    const { refreshToken, deviceId } = req.body;
+    const result = await authService.refreshToken(refreshToken, deviceId);
+    sendSuccess(res, result, MESSAGES.TOKEN_REFRESH_SUCCESS, undefined, req.correlationId);
+  });
+
+  logout = asyncHandler(async (req: Request, res: Response) => {
+    const { refreshToken, deviceId } = req.body;
+    await authService.logout(refreshToken, deviceId);
+    sendSuccess(res, null, MESSAGES.LOGOUT_SUCCESS, undefined, req.correlationId);
+  });
+
   sendOtp = asyncHandler(async (req: Request, res: Response) => {
     const { email, phone, purpose } = req.body;
     const identifier = email || phone!;

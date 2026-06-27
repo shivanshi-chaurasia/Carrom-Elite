@@ -101,8 +101,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               onPrimary: AppColors.bg,
               surface: AppColors.surface,
               onSurface: AppColors.text,
-            ),
-            dialogBackgroundColor: AppColors.surface2,
+            ), dialogTheme: DialogThemeData(backgroundColor: AppColors.surface2),
           ),
           child: child!,
         );

@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -18,7 +17,7 @@ class _ContactSupportScreenState extends ConsumerState<ContactSupportScreen> {
   final _subjectCtrl = TextEditingController();
   final _descCtrl = TextEditingController();
   String _selectedCategory = 'Wallet & Payments';
-  File? _mockScreenshotFile;
+  String? _mockScreenshotPath;
   bool _isSubmitting = false;
 
   final List<String> _categories = [
@@ -215,7 +214,7 @@ class _ContactSupportScreenState extends ConsumerState<ContactSupportScreen> {
   }
 
   Widget _buildScreenshotUploader() {
-    final attached = _mockScreenshotFile != null;
+    final attached = _mockScreenshotPath != null;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(12),
@@ -245,9 +244,9 @@ class _ContactSupportScreenState extends ConsumerState<ContactSupportScreen> {
             onPressed: () {
               setState(() {
                 if (attached) {
-                  _mockScreenshotFile = null;
+                  _mockScreenshotPath = null;
                 } else {
-                  _mockScreenshotFile = File('/mock/path/screenshot_2026.png');
+                  _mockScreenshotPath = '/mock/path/screenshot_2026.png';
                 }
               });
             },
@@ -300,7 +299,7 @@ class _ContactSupportScreenState extends ConsumerState<ContactSupportScreen> {
             subject: _subjectCtrl.text,
             category: _selectedCategory,
             description: _descCtrl.text,
-            screenshot: _mockScreenshotFile,
+            screenshotPath: _mockScreenshotPath,
           );
 
       if (mounted) {

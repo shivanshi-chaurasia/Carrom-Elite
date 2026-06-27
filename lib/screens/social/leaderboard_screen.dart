@@ -118,7 +118,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> with SingleTicker
 
   Widget _buildPodium(List<Map<String, dynamic>> top3) {
     // Rearrange visually: Rank 2, Rank 1, Rank 3
-    final Map<String, dynamic>? r1 = top3.firstWhere((p) => p['rank'] == 1, orElse: () => top3[0]);
+    final Map<String, dynamic> r1 = top3.firstWhere((p) => p['rank'] == 1, orElse: () => top3[0]);
     final Map<String, dynamic>? r2 = top3.length > 1 ? top3.firstWhere((p) => p['rank'] == 2) : null;
     final Map<String, dynamic>? r3 = top3.length > 2 ? top3.firstWhere((p) => p['rank'] == 3) : null;
 
@@ -133,10 +133,8 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> with SingleTicker
         ],
 
         // Rank 1
-        if (r1 != null) ...[
-          _podiumItem(r1, height: 135, color: AppColors.gold, avatarRadius: 36),
-          const SizedBox(width: 16),
-        ],
+        _podiumItem(r1, height: 135, color: AppColors.gold, avatarRadius: 36),
+        const SizedBox(width: 16),
 
         // Rank 3
         if (r3 != null) ...[
