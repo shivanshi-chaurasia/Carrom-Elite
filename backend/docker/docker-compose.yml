@@ -52,6 +52,7 @@ services:
       DATABASE_URL: postgresql://carrom_user:carrom_pass_secure@postgres:5432/carrom_lottery?schema=public
       REDIS_HOST: redis
       REDIS_PORT: 6379
+      REDIS_USERNAME: default
       REDIS_PASSWORD: redis_pass_secure
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}

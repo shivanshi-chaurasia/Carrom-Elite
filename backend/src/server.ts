@@ -7,6 +7,7 @@ import { configureCloudinary } from './config/cloudinary';
 import { initializeFirebase } from './config/firebase';
 import { createServer } from 'http';
 import { initializeSocket } from './socket';
+import { initializeJobQueues, shutdownJobQueues } from './jobs';
 
 let httpServer: ReturnType<typeof createServer>;
 
@@ -29,6 +30,9 @@ async function bootstrap(): Promise<void> {
 
     // Initialize Socket.IO
     initializeSocket(httpServer);
+
+    // Initialize job queues and matchmaker
+    await initializeJobQueues();
 
     // Start server
     httpServer.listen(config.port, config.host, () => {
@@ -55,6 +59,9 @@ async function shutdown(signal: string): Promise<void> {
   if (httpServer) {
     httpServer.close(async () => {
       logger.info('HTTP server closed');
+
+      // Shutdown job queues
+      await shutdownJobQueues();
 
       // Disconnect database
       await disconnectDatabase();

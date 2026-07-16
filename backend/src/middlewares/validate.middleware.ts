@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { ZodSchema, ZodError } from 'zod';
 import { ApiError } from '../utils/api-error';
 
-interface ValidationSchemas {
+export interface ValidationSchemas {
   body?: ZodSchema;
   query?: ZodSchema;
   params?: ZodSchema;

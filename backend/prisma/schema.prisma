@@ -229,6 +229,7 @@ model User {
   referralEarningsAsReferrer ReferralEarning[] @relation("ReferralEarningReferrer")
   referralEarningsAsReferred ReferralEarning[] @relation("ReferralEarningReferred")
   matchPlayers          MatchPlayer[]
+  gameMoves             GameMove[]
   wonMatches            Match[]         @relation("MatchWinner")
   rooms                 Room[]          @relation("RoomOwner")
   leaderboardEntries    Leaderboard[]
@@ -481,23 +482,51 @@ model Match {
   winnerPrize   Decimal?    @db.Decimal(15, 2)
   startedAt     DateTime?
   completedAt   DateTime?
-  duration      Int?        // seconds
+  duration      Int?
+
+  // Server-authoritative game state stored as JSON
+  gameState     Json?       @db.JsonB
+  // Current turn data: { activePlayer, turnNumber, turnStartTime, timeLimit }
+  turnData      Json?       @db.JsonB
+
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
 
   room    Room          @relation(fields: [roomId], references: [id])
   players MatchPlayer[]
+  moves   GameMove[]
   winner  User?         @relation("MatchWinner", fields: [winnerId], references: [id])
 
   @@index([status])
   @@index([type])
   @@index([roomId])
   @@index([createdAt])
+  @@index([status, type, entryFee])
+  @@index([winnerId])
   @@map("matches")
+}
+
+model GameMove {
+  id        String   @id @default(uuid()) @db.Uuid
+  matchId   String   @db.Uuid
+  userId    String   @db.Uuid
+  turnNumber Int
+  moveType  String   @db.VarChar(50)   // STRIKE, FOUL, TIMEOUT
+  moveData  Json     @db.JsonB          // { strikerPos, aimAngle, force, pocketedCoinIds, ... }
+  timestamp DateTime @default(now())
+
+  match Match @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id])
+
+  @@index([matchId, turnNumber])
+  @@index([matchId, userId])
+  @@index([matchId, timestamp])
+  @@map("game_moves")
 }
 
 model Room {
   id          String    @id @default(uuid()) @db.Uuid
+  code        String    @unique @db.VarChar(20)
   name        String?   @db.VarChar(100)
   ownerId     String    @db.Uuid
   type        RoomType  @default(CLASSIC)
@@ -516,6 +545,7 @@ model Room {
   @@index([ownerId])
   @@index([isActive])
   @@index([type])
+  @@index([code])
   @@map("rooms")
 }
 

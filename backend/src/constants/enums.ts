@@ -162,3 +162,23 @@ export enum PaymentGateway {
   STRIPE = 'STRIPE',
   MANUAL = 'MANUAL',
 }
+
+export enum CoinType {
+  BLACK = 'BLACK',
+  WHITE = 'WHITE',
+  RED = 'RED',
+}
+
+export enum GameResult {
+  WIN = 'WIN',
+  LOSS = 'LOSS',
+  DRAW = 'DRAW',
+  ABANDONED = 'ABANDONED',
+}
+
+export enum TurnStatus {
+  ACTIVE = 'ACTIVE',
+  TIMEOUT = 'TIMEOUT',
+  FOUL = 'FOUL',
+  COMPLETED = 'COMPLETED',
+}

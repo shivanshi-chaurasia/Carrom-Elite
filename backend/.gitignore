@@ -9,3 +9,8 @@ uploads/
 .env.production
 .DS_Store
 *.tsbuildinfo
+
+# Secrets / credentials - kabhi commit mat karo
+firebase-credentials.json
+*-credentials.json
+serviceAccountKey.json

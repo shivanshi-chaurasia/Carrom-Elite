@@ -5,6 +5,7 @@ import { config } from '../config';
 import { logger } from '../config/logger';
 import { JwtPayload } from '../interfaces/response.interface';
 import { getRedisClient } from '../config/redis';
+import { registerGameHandlers } from './game-handler';
 
 const JWT_SECRET = process.env.JWT_SECRET!;
 
@@ -107,27 +108,8 @@ export function initializeSocket(httpServer: HttpServer): Server {
       },
     );
 
-    // Handle match events
-    socket.on(
-      'match:move',
-      (data: { matchId: string; moveData: unknown }) => {
-        const room = `match:${data.matchId}`;
-        socket.to(room).emit('match:opponent-move', {
-          userId,
-          moveData: data.moveData,
-        });
-      },
-    );
-
-    socket.on(
-      'match:ready',
-      (data: { matchId: string }) => {
-        const room = `match:${data.matchId}`;
-        io.to(room).emit('match:player-ready', {
-          userId,
-        });
-      },
-    );
+    // Register game event handlers
+    registerGameHandlers(io, socket);
 
     // Handle chat messages
     socket.on(
