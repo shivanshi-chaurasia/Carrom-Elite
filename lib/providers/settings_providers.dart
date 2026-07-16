@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/settings_models.dart';
 import 'service_providers.dart';
@@ -149,13 +148,13 @@ class TicketsNotifier extends AsyncNotifier<List<SupportTicketModel>> {
     required String subject,
     required String category,
     required String description,
-    File? screenshot,
+    String? screenshotPath,
   }) async {
     final newT = await ref.read(settingsServiceProvider).createTicket(
           subject: subject,
           category: category,
           description: description,
-          screenshot: screenshot,
+          screenshotPath: screenshotPath,
         );
     if (state.hasValue) {
       state = AsyncData([newT, ...state.value!]);

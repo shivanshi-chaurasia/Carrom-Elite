@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+
+import 'providers/auth_providers.dart';
 
 import 'core/theme/app_theme.dart';
 import 'screens/auth/login_screen.dart';
@@ -218,9 +221,84 @@ class AppRoutes {
   static const withdrawalOtp = '/withdrawal-otp';
 }
 
-final appRouter = GoRouter(
-  initialLocation: AppRoutes.splash,
-  routes: [
+final _authChanges = ValueNotifier<int>(0);
+
+final routerProvider = Provider<GoRouter>((ref) {
+  ref.listen<AuthState>(authProvider, (prev, next) {
+    if (prev?.status != next.status) {
+      _authChanges.value++;
+    }
+  });
+
+  return GoRouter(
+    refreshListenable: _authChanges,
+    initialLocation: AppRoutes.splash,
+    redirect: (context, state) {
+      final authState = ref.read(authProvider);
+      final isLoggedIn = authState.status == AuthStatus.authenticated;
+      final isUnknown = authState.status == AuthStatus.unknown;
+      final location = state.uri.toString();
+
+      final authRoutes = [
+        AppRoutes.login, AppRoutes.signUp, AppRoutes.otpVerify,
+        AppRoutes.createPassword, AppRoutes.authSuccess,
+        AppRoutes.splash, AppRoutes.onboarding, AppRoutes.welcome,
+        AppRoutes.languageSelection, AppRoutes.forgotPassword,
+        AppRoutes.socialLogin,
+      ];
+
+      final protectedRoutes = [
+        AppRoutes.home, AppRoutes.featuredGames, AppRoutes.carromHome,
+        AppRoutes.carromLobby, AppRoutes.carromMatch, AppRoutes.carromResult,
+        AppRoutes.lotteryHome, AppRoutes.lotteryDetail, AppRoutes.lotteryResults,
+        AppRoutes.walletDashboard, AppRoutes.addMoney, AppRoutes.withdraw,
+        AppRoutes.transactionHistory, AppRoutes.profile,
+        AppRoutes.rewardsCenter, AppRoutes.vipMembership,
+        AppRoutes.coinConversion, AppRoutes.referralProgram,
+        AppRoutes.friendsList, AppRoutes.chat, AppRoutes.communityFeed,
+        AppRoutes.settingsDashboard, AppRoutes.notificationCenter,
+        AppRoutes.soundGraphics, AppRoutes.twoFactorSetup,
+        AppRoutes.helpCenter, AppRoutes.raiseTicket, AppRoutes.liveChat,
+        AppRoutes.practiceMode, AppRoutes.matchSelection,
+        AppRoutes.teamMatch, AppRoutes.spectatorMode,
+        AppRoutes.matchStats, AppRoutes.matchReplay, AppRoutes.leaderboard,
+        AppRoutes.dailyMissions, AppRoutes.achievementRewards,
+        AppRoutes.buyLotteryTicket, AppRoutes.activeLottery,
+        AppRoutes.jackpotLottery, AppRoutes.winnerAnnouncement,
+        AppRoutes.rewardClaim, AppRoutes.bonusWallet, AppRoutes.cashback,
+        AppRoutes.gstInvoice, AppRoutes.faq, AppRoutes.contactSupport,
+        AppRoutes.ticketHistory, AppRoutes.editProfile,
+        AppRoutes.accountSettings, AppRoutes.privacySettings,
+        AppRoutes.linkedDevices, AppRoutes.lotteryNumberSelect,
+        AppRoutes.previousWinners, AppRoutes.withdrawalOtp,
+        AppRoutes.verifyMobile, AppRoutes.verifyEmail,
+        AppRoutes.referralCode, AppRoutes.verifyDevice,
+        AppRoutes.biometricSetup, AppRoutes.profilePhoto,
+        AppRoutes.selfieVerify, AppRoutes.notifSettings,
+        AppRoutes.bankDetails, AppRoutes.kycVerify, AppRoutes.uploadDocs,
+        AppRoutes.permStorage, AppRoutes.permNotification,
+        AppRoutes.permMicrophone, AppRoutes.permCamera,
+        AppRoutes.dailyRewards, AppRoutes.eventPopup,
+        AppRoutes.promoDetails, AppRoutes.quickMatch,
+        AppRoutes.tournamentBanners, AppRoutes.lotteryHighlights,
+      ];
+
+      if (isUnknown) return null;
+
+      final isAuthRoute = authRoutes.any((r) => location == r || location.startsWith('$r/'));
+      final isProtectedRoute = protectedRoutes.any((r) => location == r || location.startsWith('$r/'));
+
+      if (isLoggedIn && isAuthRoute) {
+        return AppRoutes.home;
+      }
+
+      if (!isLoggedIn && isProtectedRoute) {
+        return AppRoutes.login;
+      }
+
+      return null;
+    },
+    routes: [
     // Dashboard Routes
     GoRoute(
       path: AppRoutes.home,
@@ -392,7 +470,10 @@ final appRouter = GoRouter(
     ),
     GoRoute(
       path: AppRoutes.otpVerify,
-      pageBuilder: (ctx, state) => _fade(state, const OtpVerificationScreen()),
+      pageBuilder: (ctx, state) => _fade(
+        state,
+        OtpVerificationScreen(email: state.uri.queryParameters['email']),
+      ),
     ),
     GoRoute(
       path: AppRoutes.createPassword,
@@ -640,7 +721,8 @@ final appRouter = GoRouter(
       },
     ),
   ],
-);
+  );
+});
 
 CustomTransitionPage<void> _fade(GoRouterState state, Widget child) {
   return CustomTransitionPage<void>(
@@ -663,16 +745,17 @@ CustomTransitionPage<void> _fade(GoRouterState state, Widget child) {
   );
 }
 
-class CarromLotteryApp extends StatelessWidget {
+class CarromLotteryApp extends ConsumerWidget {
   const CarromLotteryApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final router = ref.watch(routerProvider);
     return MaterialApp.router(
       title: 'Carrom Lottery',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.dark,
-      routerConfig: appRouter,
+      routerConfig: router,
       builder: (context, child) => MobileScreeningWrapper(child: child!),
     );
   }

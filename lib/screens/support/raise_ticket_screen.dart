@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -18,7 +17,7 @@ class _RaiseTicketScreenState extends ConsumerState<RaiseTicketScreen> {
   final _subjectCtrl = TextEditingController();
   final _descCtrl = TextEditingController();
   String _selectedCategory = 'General Query';
-  File? _mockScreenshotFile;
+  String? _mockScreenshotPath;
   bool _isSubmitting = false;
 
   final List<String> _categories = [
@@ -205,7 +204,7 @@ class _RaiseTicketScreenState extends ConsumerState<RaiseTicketScreen> {
   }
 
   Widget _buildScreenshotUploader() {
-    final attached = _mockScreenshotFile != null;
+    final attached = _mockScreenshotPath != null;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(12),
@@ -235,10 +234,9 @@ class _RaiseTicketScreenState extends ConsumerState<RaiseTicketScreen> {
             onPressed: () {
               setState(() {
                 if (attached) {
-                  _mockScreenshotFile = null;
+                  _mockScreenshotPath = null;
                 } else {
-                  // Mock screenshot capture
-                  _mockScreenshotFile = File('/mock/path/screenshot_2026.png');
+                  _mockScreenshotPath = '/mock/path/screenshot_2026.png';
                 }
               });
             },
@@ -278,13 +276,13 @@ class _RaiseTicketScreenState extends ConsumerState<RaiseTicketScreen> {
                           subject: _subjectCtrl.text,
                           category: _selectedCategory,
                           description: _descCtrl.text,
-                          screenshot: _mockScreenshotFile,
+                          screenshotPath: _mockScreenshotPath,
                         );
 
                     _subjectCtrl.clear();
                     _descCtrl.clear();
                     setState(() {
-                      _mockScreenshotFile = null;
+                      _mockScreenshotPath = null;
                       _selectedCategory = 'General Query';
                     });
 

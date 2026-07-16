@@ -234,7 +234,7 @@ class _PrivacySettingsScreenState extends State<PrivacySettingsScreen> {
           ),
           Switch(
             value: value,
-            activeColor: AppColors.teal,
+            activeThumbColor: AppColors.teal,
             activeTrackColor: AppColors.teal.withOpacity(0.3),
             inactiveThumbColor: AppColors.textSoft,
             inactiveTrackColor: AppColors.bg,

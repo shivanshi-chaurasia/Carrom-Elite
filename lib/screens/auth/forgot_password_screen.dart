@@ -1,17 +1,19 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/constants/colors.dart';
 import '../../core/theme/typography.dart';
+import '../../providers/service_providers.dart';
 
-class ForgotPasswordScreen extends StatefulWidget {
+class ForgotPasswordScreen extends ConsumerStatefulWidget {
   const ForgotPasswordScreen({super.key});
 
   @override
-  State<ForgotPasswordScreen> createState() => _ForgotPasswordScreenState();
+  ConsumerState<ForgotPasswordScreen> createState() => _ForgotPasswordScreenState();
 }
 
-class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
+class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
   final PageController _pageController = PageController();
   final _phoneCtrl = TextEditingController();
   final List<TextEditingController> _otpCtrls = List.generate(6, (_) => TextEditingController());
@@ -53,48 +55,80 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     });
   }
 
-  void _sendOtp() {
-    if (_phoneCtrl.text.trim().length < 10) {
+  void _sendOtp() async {
+    final phone = _phoneCtrl.text.trim();
+    if (phone.length < 10) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please enter a valid phone number')),
       );
       return;
     }
     setState(() => _isSendingOtp = true);
-    Future.delayed(const Duration(milliseconds: 1500), () {
+    try {
+      await ref.read(authServiceProvider).sendOtp(
+        phone: phone,
+        purpose: 'password_reset',
+      );
       if (!mounted) return;
-      setState(() => _isSendingOtp = false);
       _pageController.nextPage(duration: const Duration(milliseconds: 300), curve: Curves.easeIn);
       _startResendTimer();
-    });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to send OTP: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _isSendingOtp = false);
+    }
   }
 
-  void _verifyOtp() {
+  void _verifyOtp() async {
     var otp = _otpCtrls.map((c) => c.text).join();
     if (otp.length < 6) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please enter the 6-digit OTP')),
       );
       return;
     }
     setState(() => _isVerifyingOtp = true);
-    Future.delayed(const Duration(milliseconds: 1500), () {
+    try {
+      final verified = await ref.read(authServiceProvider).verifyOtp(
+        phone: _phoneCtrl.text.trim(),
+        otp: otp,
+        purpose: 'password_reset',
+      );
       if (!mounted) return;
-      setState(() => _isVerifyingOtp = false);
-      _pageController.nextPage(duration: const Duration(milliseconds: 300), curve: Curves.easeIn);
-    });
+      if (verified) {
+        _pageController.nextPage(duration: const Duration(milliseconds: 300), curve: Curves.easeIn);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Invalid OTP. Please try again.')),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('OTP verification failed: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _isVerifyingOtp = false);
+    }
   }
 
-  void _resetPassword() {
+  void _resetPassword() async {
     var p1 = _newPassCtrl.text;
     var p2 = _confirmPassCtrl.text;
     if (p1.isEmpty || p1.length < 6) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Password must be at least 6 characters')),
       );
       return;
     }
     if (p1 != p2) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Passwords do not match')),
       );
@@ -102,9 +136,13 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     }
 
     setState(() => _isResettingPassword = true);
-    Future.delayed(const Duration(milliseconds: 1500), () {
+    try {
+      // OTP was verified; use the API to reset
+      await ref.read(authServiceProvider).resetPassword(
+        token: _phoneCtrl.text.trim(),
+        password: p1,
+      );
       if (!mounted) return;
-      setState(() => _isResettingPassword = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           backgroundColor: AppColors.teal,
@@ -115,7 +153,14 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         ),
       );
       context.go('/login');
-    });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Password reset failed: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _isResettingPassword = false);
+    }
   }
 
   @override

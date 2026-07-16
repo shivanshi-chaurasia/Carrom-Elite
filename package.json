@@ -1,0 +1,20 @@
+{
+  "name": "carrom-elite-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Carrom Elite - Monorepo with Node.js backend & Flutter frontend",
+  "scripts": {
+    "backend:dev": "cd backend && npm run dev",
+    "backend:build": "cd backend && npm run build",
+    "backend:start": "cd backend && npm run start",
+    "backend:typecheck": "cd backend && npm run typecheck",
+    "backend:lint": "cd backend && npm run lint",
+    "backend:test": "cd backend && npm run test",
+    "frontend:dev": "cd frontend && flutter run",
+    "frontend:build": "cd frontend && flutter build",
+    "frontend:analyze": "cd frontend && flutter analyze",
+    "docker:up": "cd backend && npm run docker:up",
+    "docker:down": "cd backend && npm run docker:down",
+    "setup": "cd backend && npm install"
+  }
+}
